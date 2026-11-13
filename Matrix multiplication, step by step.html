@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Matrix multiplication, step by step</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#f2f5f7;--grid:#dbe4ea;--ink:#14213d;--muted:#5b6b7e;--card:#fff;--line:#b9c6d2;
+--row:#c2700a;--rowbg:#fde9c8;--col:#0f7f72;--colbg:#cdeee9;--res:#5b3fd1;--resbg:#e3dcfb;
+--serif:"Newsreader",Georgia,serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#101823;--grid:#1b2735;--ink:#e8eef5;--muted:#94a5b8;--card:#17212e;--line:#34465a;--row:#f4a43a;--rowbg:#4a3515;--col:#3fc9b8;--colbg:#11403b;--res:#a592f5;--resbg:#2d2556}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#101823;--grid:#1b2735;--ink:#e8eef5;--muted:#94a5b8;--card:#17212e;--line:#34465a;--row:#f4a43a;--rowbg:#4a3515;--col:#3fc9b8;--colbg:#11403b;--res:#a592f5;--resbg:#2d2556}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
+background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:28px 28px}
+main{max-width:980px;margin:0 auto;padding:32px 20px 56px}
+h1{font:700 clamp(2rem,5vw,3.2rem)/1.1 var(--serif);margin:0 0 8px;letter-spacing:-.01em}
+.lede{max-width:60ch;color:var(--muted);margin:0 0 24px}
+.panel{background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:18px}
+.controls{display:flex;flex-wrap:wrap;gap:16px;align-items:end;margin-bottom:18px}
+label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:4px}
+select,button,input{font:inherit;color:inherit}
+select{padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;background:var(--card);min-height:40px}
+button{min-height:44px;padding:0 16px;border:1.5px solid var(--ink);border-radius:6px;background:var(--card);cursor:pointer;font-weight:600}
+button.primary{background:var(--ink);color:var(--bg)}
+button:disabled{opacity:.4;cursor:default}
+:focus-visible{outline:3px solid var(--res);outline-offset:2px}
+.stage{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;justify-content:center;overflow-x:auto;padding:8px 0}
+.op{font:500 2rem var(--serif);color:var(--muted)}
+.mat{text-align:center}
+.mat h2{font:500 1rem var(--serif);margin:0 0 6px;color:var(--muted)}
+.cells{display:grid;gap:6px;padding:8px 12px;border-left:3px solid var(--ink);border-right:3px solid var(--ink);border-radius:8px}
+.cells input,.cells div{width:60px;height:46px;text-align:center;font:500 1rem var(--mono);border:1.5px solid var(--line);border-radius:5px;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:0;-moz-appearance:textfield}
+.cells input::-webkit-outer-spin-button,.cells input::-webkit-inner-spin-button{-webkit-appearance:none}
+.cells .row{background:var(--rowbg);border-color:var(--row);color:var(--ink)}
+.cells .col{background:var(--colbg);border-color:var(--col);color:var(--ink)}
+.cells .pending{color:var(--muted);opacity:.6}
+.cells .done{background:var(--resbg);border-color:var(--res)}
+.cells .cur{background:var(--res);border-color:var(--res);color:#fff;transform:scale(1.08);transition:transform .15s}
+.explain{margin-top:18px;min-height:96px}
+.explain .head{font:500 1.15rem var(--serif);margin:0 0 8px}
+.sum{font:500 1.05rem/1.9 var(--mono);overflow-wrap:anywhere}
+.a{background:var(--rowbg);border-bottom:2px solid var(--row);padding:1px 5px;border-radius:3px}
+.b{background:var(--colbg);border-bottom:2px solid var(--col);padding:1px 5px;border-radius:3px}
+.r{background:var(--res);color:#fff;padding:1px 7px;border-radius:3px}
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.rule{margin-top:20px;color:var(--muted);font-size:.95rem;max-width:70ch}
+@media (prefers-reduced-motion:reduce){.cells .cur{transition:none}}
+@media (max-width:520px){.cells input,.cells div{width:46px;height:40px;font-size:.9rem}}
+</style>
+</head>
+<body>
+<main>
+<h1>Matrix multiplication, step by step</h1>
+<p class="lede">Each entry of the product is a row of A multiplied pairwise with a column of B, then added up. Edit any number, then step through the result.</p>
+
+<div class="panel">
+  <div class="controls">
+    <label>Rows of A<select id="m"></select></label>
+    <label>Columns of A = rows of B<select id="n"></select></label>
+    <label>Columns of B<select id="p"></select></label>
+    <button id="rand" type="button">Randomize numbers</button>
+  </div>
+
+  <div class="stage">
+    <div class="mat"><h2 id="ta">A</h2><div class="cells" id="A"></div></div>
+    <span class="op" aria-hidden="true">×</span>
+    <div class="mat"><h2 id="tb">B</h2><div class="cells" id="B"></div></div>
+    <span class="op" aria-hidden="true">=</span>
+    <div class="mat"><h2 id="tc">C</h2><div class="cells" id="C"></div></div>
+  </div>
+
+  <div class="explain" aria-live="polite">
+    <p class="head" id="head"></p>
+    <div class="sum" id="sum"></div>
+  </div>
+
+  <div class="btns">
+    <button id="prev" type="button">Previous</button>
+    <button id="next" type="button" class="primary">Next entry</button>
+    <button id="play" type="button">Play</button>
+    <button id="all" type="button">Show all</button>
+    <button id="reset" type="button">Clear result</button>
+  </div>
+  <p class="rule" id="rule"></p>
+</div>
+</main>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var m=2,n=3,p=2,step=0,timer=null;
+  var A=[[1,2,3],[4,5,6]],B=[[7,8],[9,10],[11,12]];
+  var rnd=function(){return Math.floor(Math.random()*13)-3};
+  var inA=[],inB=[],cC=[];
+
+  ['m','n','p'].forEach(function(id){
+    var s=$(id);
+    for(var k=1;k<=5;k++){var o=document.createElement('option');o.value=k;o.textContent=k;s.appendChild(o)}
+    s.value=({m:m,n:n,p:p})[id];
+    s.addEventListener('change',function(){stop();resize()});
+  });
+
+  function grid(rows,cols){return Array.from({length:rows},function(){return Array(cols).fill(0)})}
+  function resize(){
+    var nm=+$('m').value,nn=+$('n').value,np=+$('p').value;
+    var nA=grid(nm,nn),nB=grid(nn,np);
+    for(var i=0;i<nm;i++)for(var j=0;j<nn;j++)nA[i][j]=(A[i]&&A[i][j]!==undefined)?A[i][j]:rnd();
+    for(i=0;i<nn;i++)for(j=0;j<np;j++)nB[i][j]=(B[i]&&B[i][j]!==undefined)?B[i][j]:rnd();
+    A=nA;B=nB;m=nm;n=nn;p=np;step=0;build();
+  }
+  function make(host,data,store,which){
+    host.innerHTML='';store.length=0;
+    host.style.gridTemplateColumns='repeat('+data[0].length+',auto)';
+    data.forEach(function(row,i){store.push([]);row.forEach(function(v,j){
+      var el=document.createElement('input');
+      el.type='number';el.step='any';el.value=v;
+      el.setAttribute('aria-label',which+' row '+(i+1)+' column '+(j+1));
+      el.addEventListener('input',function(){
+        var x=parseFloat(el.value);(which==='A'?A:B)[i][j]=isNaN(x)?0:x;paint();
+      });
+      host.appendChild(el);store[i].push(el);
+    })});
+  }
+  function build(){
+    make($('A'),A,inA,'A');make($('B'),B,inB,'B');
+    var C=$('C');C.innerHTML='';cC=[];
+    C.style.gridTemplateColumns='repeat('+p+',auto)';
+    for(var i=0;i<m*p;i++){var d=document.createElement('div');C.appendChild(d);cC.push(d)}
+    $('ta').textContent='A  ('+m+'×'+n+')';
+    $('tb').textContent='B  ('+n+'×'+p+')';
+    $('tc').textContent='C = AB  ('+m+'×'+p+')';
+    $('rule').textContent='A has '+n+' columns and B has '+n+' rows, so the product exists. C takes the rows of A and the columns of B, so it is '+m+'×'+p+'. Each entry needs '+n+' multiplications.';
+    paint();
+  }
+  function fmt(x){return Math.round(x*1e6)/1e6}
+  function paint(){
+    var total=m*p,cur=step-1,ci=Math.floor(cur/p),cj=cur%p;
+    for(var i=0;i<m;i++)for(var j=0;j<n;j++)inA[i][j].className=(step>0&&i===ci)?'row':'';
+    for(i=0;i<n;i++)for(j=0;j<p;j++)inB[i][j].className=(step>0&&j===cj)?'col':'';
+    for(var k=0;k<total;k++){
+      var r=Math.floor(k/p),c=k%p,s=0;
+      for(var t=0;t<n;t++)s+=A[r][t]*B[t][c];
+      var d=cC[k];
+      if(k<step){d.textContent=fmt(s);d.className=(k===cur)?'cur':'done'}
+      else{d.textContent='?';d.className='pending'}
+    }
+    if(step===0){
+      $('head').textContent='Press “Next entry” to compute the first entry of C.';
+      $('sum').innerHTML='';
+    }else{
+      var terms=[],sum=0;
+      for(t=0;t<n;t++){
+        sum+=A[ci][t]*B[t][cj];
+        terms.push('<span class="a">'+fmt(A[ci][t])+'</span>×<span class="b">'+fmt(B[t][cj])+'</span>');
+      }
+      $('head').textContent='C'+(ci+1)+','+(cj+1)+' = row '+(ci+1)+' of A · column '+(cj+1)+' of B';
+      $('sum').innerHTML=terms.join(' + ')+' = <span class="r">'+fmt(sum)+'</span>';
+    }
+    $('prev').disabled=step<=0;
+    $('next').disabled=step>=total;
+    $('all').disabled=step>=total;
+    $('reset').disabled=step===0;
+  }
+  function stop(){if(timer){clearInterval(timer);timer=null;$('play').textContent='Play'}}
+  $('next').onclick=function(){if(step<m*p){step++;paint()}};
+  $('prev').onclick=function(){stop();if(step>0){step--;paint()}};
+  $('all').onclick=function(){stop();step=m*p;paint()};
+  $('reset').onclick=function(){stop();step=0;paint()};
+  $('rand').onclick=function(){
+    stop();
+    A=A.map(function(r){return r.map(rnd)});B=B.map(function(r){return r.map(rnd)});
+    step=0;build();
+  };
+  $('play').onclick=function(){
+    if(timer){stop();return}
+    if(step>=m*p)step=0;
+    $('play').textContent='Pause';
+    timer=setInterval(function(){
+      if(step>=m*p){stop();return}
+      step++;paint();
+    },1200);
+  };
+  build();
+})();
+</script>
+</body>
+</html>
